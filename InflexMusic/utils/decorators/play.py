@@ -36,7 +36,7 @@ def PlayWrapper(command):
                 [
                     [
                         InlineKeyboardButton(
-                            text="ʜᴏᴡ ᴛᴏ ғɪx ?",
+                            text="Gizli İstifadəçisiniz...",
                             callback_data="AnonymousAdmin",
                         ),
                     ]
