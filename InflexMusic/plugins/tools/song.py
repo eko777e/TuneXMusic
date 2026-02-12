@@ -1,87 +1,110 @@
 import os
-import re
-import asyncio
-from pyrogram import filters
-from pyrogram.types import Message
-import yt_dlp
-from InflexMusic import app
+from pyrogram import enums, filters
+from pyrogram.types import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+)
+from config import (BANNED_USERS, SONG_DOWNLOAD_DURATION,
+                    SONG_DOWNLOAD_DURATION_LIMIT)
+from InflexMusic import YouTube, app
+from InflexMusic.utils.decorators.language import language, languageCB
+from InflexMusic.utils.formatters import convert_bytes
+from InflexMusic.utils.inline.song import song_markup
 
-def safe_filename(name):
-    return re.sub(r'[\\/*?:"<>|]', "", name)
-
-
-async def download_song(query):
-    loop = asyncio.get_event_loop()
-
-    search_opts = {
-        "quiet": True,
-        "skip_download": True,
-        "default_search": "ytsearch1",
-        "cookiefile": "cookies/cookies.txt",  # 🔥 ƏLAVƏ OLUNDU
-    }
-
-    download_opts = {
-        "format": "bestaudio/best",
-        "outtmpl": "%(title)s.%(ext)s",
-        "quiet": True,
-        "nocheckcertificate": True,
-        "geo_bypass": True,
-        "geo_bypass_country": "US",
-        "cookiefile": "cookies/cookies.txt",  # 🔥 ƏLAVƏ OLUNDU
-        "http_headers": {
-            "User-Agent": "Mozilla/5.0",
-        },
-        "extractor_args": {
-            "youtube": {
-                "player_client": ["android"]
-            }
-        },
-        "postprocessors": [{
-            "key": "FFmpegExtractAudio",
-            "preferredcodec": "mp3",
-            "preferredquality": "192",
-        }],
-    }
-
-    def run():
-        # 1️⃣ Axtarış
-        with yt_dlp.YoutubeDL(search_opts) as ydl:
-            info = ydl.extract_info(query, download=False)
-            video = info["entries"][0]
-            url = video["webpage_url"]
-            title = safe_filename(video["title"])
-
-        # 2️⃣ Download
-        with yt_dlp.YoutubeDL(download_opts) as ydl:
-            ydl.download([url])
-
-        return f"{title}.mp3", title
-
-    return await loop.run_in_executor(None, run)
+YouTube = YouTubeAPI()
 
 
-@app.on_message(filters.command("song") & filters.private)
-async def song_handler(client, message: Message):
-
+@app.on_message(
+    filters.command(["song"]) & filters.private & ~BANNED_USERS
+)
+@language
+async def song_search_results(client, message: Message, _):
     if len(message.command) < 2:
-        return await message.reply("❗ İstifadə:\n/song <mahnı adı>")
+        return await message.reply_text(_["mahni_2"])
 
-    query = " ".join(message.command[1:])
-    msg = await message.reply("🎧 <b>Musiqi yüklənilir...</b>")
+    query = message.text.split(None, 1)[1]
+    mystic = await message.reply_text(_["mahni_1"])
 
     try:
-        file_name, title = await download_song(query)
+        title, duration_min, duration_sec, thumbnail, vidid = await YouTube.details(query)
+    except:
+        return await mystic.edit_text(_["mahni_3"])
 
-        await app.send_audio(
-            chat_id=message.chat.id,
-            audio=file_name,
-            caption=f"🎵 **Başlıq:** {title}\n\n📢 @BotAzNews"
+    if str(duration_min) == "None":
+        return await mystic.edit_text(_["mahni_3"])
+
+    if int(duration_sec) > SONG_DOWNLOAD_DURATION_LIMIT:
+        return await mystic.edit_text(
+            _["mahni_6"].format(SONG_DOWNLOAD_DURATION, duration_min)
         )
 
-        await msg.delete()
+    buttons = [
+        [
+            InlineKeyboardButton(
+                text="🎵 Audio",
+                callback_data=f"song_download audio|{vidid}",
+            ),
+        ]
+    ]
 
-        if os.path.exists(file_name):
-            os.remove(file_name)
+    await mystic.delete()
+    return await message.reply_photo(
+        thumbnail,
+        caption=_["mahni_4"].format(title),
+        reply_markup=InlineKeyboardMarkup(buttons),
+    )
 
+
+@app.on_callback_query(filters.regex(pattern=r"song_download") & ~BANNED_USERS)
+@languageCB
+async def song_download_cb(client, CallbackQuery, _):
+    try:
+        await CallbackQuery.answer("🎵 Yüklənir..")
+    except:
+        pass
+
+    callback_data = CallbackQuery.data.strip()
+    callback_request = callback_data.split(None, 1)[1]
+    stype, vidid = callback_request.split("|")
+
+    mystic = await CallbackQuery.edit_message_text(_["mahni_8"])
+    yturl = f"https://www.youtube.com/watch?v={vidid}"
+
+    try:
+        file_path, status = await YouTube.download(
+            yturl,
+            mystic,
+            songaudio=True,
+            songvideo=None,
+            title=None,
+        )
     except Exception as e:
-        await msg.edit(f"❌ Xəta baş verdi:\n{str(e)}")
+        return await mystic.edit_text(_["mahni_9"].format(e))
+
+    if not status or not file_path:
+        return await mystic.edit_text(_["mahni_10"])
+
+    title, duration_min, duration_sec, thumbnail, vidid = await YouTube.details(yturl)
+    thumb_image_path = await client.download_media(thumbnail)
+
+    await mystic.edit_text(_["mahni_11"])
+    await app.send_chat_action(
+        chat_id=CallbackQuery.message.chat.id,
+        action=enums.ChatAction.UPLOAD_AUDIO,
+    )
+
+    try:
+        await app.send_audio(
+            chat_id=CallbackQuery.message.chat.id,
+            audio=file_path,
+            caption=f"🎵 Başlıq: {title}\n\n🤖 Bot: @ByTaGiMusicBot",
+            thumb=thumb_image_path,
+            title=title,
+            performer=f"@ByTaGiMusicBot",
+        )
+        await mystic.delete()
+    except Exception as e:
+        return await mystic.edit_text(_["mahni_10"] + f"\n\nError: {e}")
+
+    os.remove(file_path)
