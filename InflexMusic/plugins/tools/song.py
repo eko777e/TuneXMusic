@@ -1,7 +1,7 @@
 import os
 import re
 import asyncio
-from pyrogram import Client, filters
+from pyrogram import filters
 from pyrogram.types import Message
 import yt_dlp
 from InflexMusic import app
@@ -17,7 +17,7 @@ async def download_song(query):
         "quiet": True,
         "skip_download": True,
         "default_search": "ytsearch1",
-        "source_address": "0.0.0.0"
+        "cookiefile": "cookies.txt",  # 🔥 ƏLAVƏ OLUNDU
     }
 
     download_opts = {
@@ -27,10 +27,9 @@ async def download_song(query):
         "nocheckcertificate": True,
         "geo_bypass": True,
         "geo_bypass_country": "US",
-        "source_address": "0.0.0.0",
+        "cookiefile": "cookies.txt",  # 🔥 ƏLAVƏ OLUNDU
         "http_headers": {
             "User-Agent": "Mozilla/5.0",
-            "Accept-Language": "en-US,en;q=0.9"
         },
         "extractor_args": {
             "youtube": {
@@ -62,18 +61,18 @@ async def download_song(query):
 
 
 @app.on_message(filters.command("song") & filters.private)
-async def song_handler(client: Client, message: Message):
+async def song_handler(client, message: Message):
 
     if len(message.command) < 2:
         return await message.reply("❗ İstifadə:\n/song <mahnı adı>")
 
     query = " ".join(message.command[1:])
-    msg = await message.reply("🎧 **Musiqi yüklənilir...**")
+    msg = await message.reply("🎧 <b>Musiqi yüklənilir...</b>")
 
     try:
         file_name, title = await download_song(query)
 
-        await client.send_audio(
+        await app.send_audio(
             chat_id=message.chat.id,
             audio=file_name,
             caption=f"🎵 **Başlıq:** {title}\n\n📢 @BotAzNews"
