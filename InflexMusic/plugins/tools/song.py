@@ -18,10 +18,10 @@ from config import (
     SONG_DOWNLOAD_DURATION_LIMIT
 )
 
-from SakkuMusic import YouTube, app
-from SakkuMusic.utils.decorators.language import language, languageCB
-from SakkuMusic.utils.formatters import convert_bytes
-from SakkuMusic.utils.inline.song import song_markup
+from InflexMusic import YouTube, app
+from InflexMusic.utils.decorators.language import language, languageCB
+from InflexMusic.utils.formatters import convert_bytes
+from InflexMusic.utils.inline.song import song_markup
 
 
 # ===============================
