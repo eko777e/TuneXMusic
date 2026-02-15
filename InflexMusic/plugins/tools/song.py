@@ -219,7 +219,6 @@ async def song_choose_cb(client, CallbackQuery, _):
         reply_markup=InlineKeyboardMarkup(buttons),
     )
 
-
 @app.on_callback_query(filters.regex(pattern=r"song_download") & ~BANNED_USERS)
 @languageCB
 async def song_download_cb(client, CallbackQuery, _):
@@ -229,9 +228,17 @@ async def song_download_cb(client, CallbackQuery, _):
         pass
 
     callback_data = CallbackQuery.data.strip()
+    # "song_download audio|vidid" formatında gəlir
     callback_request = callback_data.split(None, 1)[1]
     stype, vidid = callback_request.split("|")
-    mystic = await CallbackQuery.edit_message_text(_["song_8"])
+    
+    # Şəkilli mesajı silirik və yerinə yalnız yazı olan mesaj göndəririk
+    await CallbackQuery.message.delete()
+    mystic = await client.send_message(
+        chat_id=CallbackQuery.message.chat.id, 
+        text=_["song_8"] # Yüklənir yazısı
+    )
+    
     yturl = f"https://www.youtube.com/watch?v={vidid}"
 
     try:
@@ -248,47 +255,52 @@ async def song_download_cb(client, CallbackQuery, _):
     if not status or not file_path:
         return await mystic.edit_text(_["song_10"])
 
+    # Metadan başlıq və müddəti alırıq
     title, duration_min, duration_sec, thumbnail, vidid = await YouTube.details(yturl)
-    thumb_image_path = await CallbackQuery.message.download()
-    duration = duration_sec
-
+    
+    # Şəkil yükləmə hissəsini sildik (thumb_image_path artıq yoxdur)
+    
     if stype == "video":
-        med = InputMediaVideo(
-            media=file_path,
-            duration=duration,
-            thumb=thumb_image_path,
-            caption=title,
-            supports_streaming=True,
-        )
-        await mystic.edit_text(_["song_11"])
+        await mystic.edit_text(_["song_11"]) # Göndərilir yazısı
         await app.send_chat_action(
             chat_id=CallbackQuery.message.chat.id,
             action=enums.ChatAction.UPLOAD_VIDEO,
         )
         try:
-            await CallbackQuery.edit_message_media(media=med)
+            await client.send_video(
+                chat_id=CallbackQuery.message.chat.id,
+                video=file_path,
+                duration=int(duration_sec),
+                caption=f"🎥 **Başlıq:** {title}\n\n📢: @ByTaGiMusicBot",
+            )
+            await mystic.delete() # "Göndərilir" yazısını silirik
         except Exception:
             return await mystic.edit_text(_["song_10"])
-        os.remove(file_path)
+        
+        if os.path.exists(file_path):
+            os.remove(file_path)
 
     elif stype == "audio":
-        med = InputMediaAudio(
-            media=file_path,
-            caption=f"🎵 Başlıq: {title}\n\n📢: @ByTaGiMusicBot",
-            thumb=thumb_image_path,
-            title=title,
-            performer="ByTaGiMusic🇦🇿"
-        )
-        await mystic.edit_text(_["song_11"])
+        await mystic.edit_text(_["song_11"]) # Göndərilir yazısı
         await app.send_chat_action(
             chat_id=CallbackQuery.message.chat.id,
             action=enums.ChatAction.UPLOAD_AUDIO,
         )
         try:
-            await CallbackQuery.edit_message_media(media=med)
+            await client.send_audio(
+                chat_id=CallbackQuery.message.chat.id,
+                audio=file_path,
+                caption=f"🎵 **Başlıq:** {title}\n\n📢: @ByTaGiMusicBot",
+                title=title,
+                performer="ByTaGiMusic🇦🇿",
+                duration=int(duration_sec)
+            )
+            await mystic.delete() # "Göndərilir" yazısını silirik
         except Exception:
             return await mystic.edit_text(_["song_10"])
-        os.remove(file_path)
+        
+        if os.path.exists(file_path):
+            os.remove(file_path)
 
 
 # 🔏 Bağla düyməsi callback
