@@ -9,7 +9,6 @@ def start_panel(_):
             InlineKeyboardButton(
                 text="💻 Coded By", url=f"https://t.me/BotAzNews"
             ),
-            InlineKeyboardButton(text="💡 Komandalar", callback_data="settings_back_helper"),
         ],
     ]
     return buttons
