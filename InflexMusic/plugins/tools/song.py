@@ -189,7 +189,7 @@ async def song_choose_cb(client, CallbackQuery, _):
     vidid = CallbackQuery.data.split(None, 1)[1]
     yturl = f"https://www.youtube.com/watch?v={vidid}"
     
-    mystic = await CallbackQuery.edit_message_text(_["mahni_1"])
+    mystic = await CallbackQuery.edit_message_text(_["mahni_12"])
     try:
         title, duration_min, duration_sec, thumbnail, vidid = await YouTube.details(yturl)
     except:
@@ -290,7 +290,7 @@ async def song_download_cb(client, CallbackQuery, _):
             await client.send_audio(
                 chat_id=CallbackQuery.message.chat.id,
                 audio=file_path,
-                caption=f"🎵 **Başlıq:** {title}\n\n📢: @ByTaGiMusicBot",
+                caption=f"🎵 <b>Mahnı:</b> {title}\n<b>Link: {link}\n\n📢: @ByTaGiMusicBot",
                 title=title,
                 performer="ByTaGiMusic🇦🇿",
                 duration=int(duration_sec)
